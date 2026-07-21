@@ -1,0 +1,104 @@
+name: Build, Push and Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: vautra_demo
+
+    outputs:
+      image_name: ${{ steps.image.outputs.image_name }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set Image Name
+        id: image
+        run: |
+          IMAGE_NAME=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
+          echo "image_name=$IMAGE_NAME" >> $GITHUB_OUTPUT
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Create .env
+        run: |
+          cat <<EOF > .env
+          NODE_ENV=development
+          PORT=8090
+          EOF
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build Application
+        run: npm run build
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Docker Image
+        run: |
+          docker build -t ghcr.io/${IMAGE_NAME}:latest .
+
+      - name: Push Docker Image
+        run: |
+          docker push ghcr.io/${IMAGE_NAME}:latest
+
+  deploy:
+    needs: build
+    runs-on: vautra_demo
+
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull Latest Image
+        run: |
+          docker pull ghcr.io/${{ needs.build.outputs.image_name }}:latest
+
+      - name: Stop Existing Container
+        run: |
+          docker stop test_vautra || true
+
+      - name: Remove Existing Container
+        run: |
+          docker rm test_vautra || true
+
+      - name: Remove Unused Images
+        run: |
+          docker image prune -f
+
+      - name: Deploy Container
+        run: |
+          docker run -d \
+            --name test_vautra \
+            -p 8090:8090 \
+            --restart always \
+            ghcr.io/${{ needs.build.outputs.image_name }}:latest
+
+      - name: Verify Deployment
+        run: |
+          docker ps -a
