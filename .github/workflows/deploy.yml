@@ -64,7 +64,7 @@ jobs:
 
   deploy:
     needs: build
-    runs-on: vautra_demo
+    runs-on: vautra-demo-runner
 
     steps:
       - name: Login to GitHub Container Registry
@@ -80,20 +80,16 @@ jobs:
 
       - name: Stop Existing Container
         run: |
-          docker stop test_vautra || true
+          docker stop vautra-demo-runner || true
 
       - name: Remove Existing Container
         run: |
-          docker rm test_vautra || true
-
-      - name: Remove Unused Images
-        run: |
-          docker image prune -f
+          docker rm vautra-demo-runner || true
 
       - name: Deploy Container
         run: |
           docker run -d \
-            --name test_vautra \
+            --name vautra-demo-runner \
             -p 8090:8090 \
             --restart always \
             ghcr.io/${{ needs.build.outputs.image_name }}:latest
