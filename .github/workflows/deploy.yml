@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: vautra_demo
+    runs-on: vautra-demo-runner
 
     outputs:
       image_name: ${{ steps.image.outputs.image_name }}
