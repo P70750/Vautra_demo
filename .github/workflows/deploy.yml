@@ -44,6 +44,24 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
+      - name: Generate Prisma Client (if Prisma exists)
+        run: |
+         if [ -f "prisma/schema.prisma" ]; then
+          echo "Prisma schema found. Generating Prisma client..."
+          npm run prisma:generate
+         else
+          echo "Prisma not found. Skipping prisma:generate."
+         fi
+
+      - name: Deploy Prisma Migrations (if Prisma exists)
+        run: |
+         if [ -f "prisma/schema.prisma" ]; then
+          echo "Prisma schema found. Running prisma deploy..."
+          npm run prisma:deploy
+         else
+          echo "Prisma not found. Skipping prisma:deploy."
+         fi
+
       - name: Build Application
         run: npm run build
 
